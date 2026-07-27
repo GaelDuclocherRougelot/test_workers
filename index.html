@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Benchmark Web Workers — tri par comptage</title>
+  </head>
+  <body>
+    <div id="app">
+      <h1>Benchmark Web Workers</h1>
+      <p>
+        Tri de 5 000 000 d'entiers, réparti sur 1 à N workers.
+        Les résultats (temps &amp; speedup) s'affichent dans la console.
+      </p>
+      <label for="algorithm">Algorithme</label>
+      <select id="algorithm">
+        <option value="value-range">Plage de valeurs (comptage, chaque worker relit tout le tableau)</option>
+        <option value="index-range">Plage d'index (tri local par tranche + fusion bottom-up)</option>
+      </select>
+      <label for="max-workers">Max workers</label>
+      <input id="max-workers" type="number" min="1" max="64" />
+      <div class="actions">
+        <button id="run-button" type="button">Lancer un one-shot</button>
+        <button id="start-button" type="button">Démarrer (10 min)</button>
+        <button id="stop-button" type="button" disabled>Stop</button>
+      </div>
+      <pre id="status"></pre>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
