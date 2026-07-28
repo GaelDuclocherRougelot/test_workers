@@ -1,11 +1,22 @@
-import type { SortRangeRequest, SortRangeDone } from "../benchmark/types";
+import type { SortRangeRequest, SortRangeDone, MergeRunsRequest, MergeRunsDone } from "../benchmark/types";
+import { mergeIndexRangeRuns } from "./mergeRuns";
+
+type Request = SortRangeRequest | MergeRunsRequest;
+type Response = SortRangeDone | MergeRunsDone;
 
 const ctx = self as unknown as {
-  onmessage: ((event: MessageEvent<SortRangeRequest>) => void) | null;
-  postMessage: (message: SortRangeDone) => void;
+  onmessage: ((event: MessageEvent<Request>) => void) | null;
+  postMessage: (message: Response) => void;
 };
 
 ctx.onmessage = ({ data }) => {
+  if (data.type === "mergeRuns") {
+    const scratch = new Uint32Array(data.scratchBuffer);
+    mergeIndexRangeRuns(data.workBuffer, data.boundaries, scratch);
+    ctx.postMessage({ type: "mergeRunsDone" });
+    return;
+  }
+
   const { sourceBuffer, workBuffer, rangeStart, rangeEndExclusive, workerId } = data;
   const length = rangeEndExclusive - rangeStart;
   const byteOffset = rangeStart * Uint32Array.BYTES_PER_ELEMENT;
@@ -13,7 +24,7 @@ ctx.onmessage = ({ data }) => {
   // Chaque worker ne lit que sa propre tranche du tableau source (contre
   // l'intégralité du tableau dans la variante par plage de valeurs), et
   // n'écrit que dans sa tranche disjointe du buffer de travail : pas besoin
-  // d'Atomics ici, aucune autre worker ne touche cette zone.
+  // d'Atomics ici, aucun autre worker ne touche cette zone.
   const src = new Uint32Array(sourceBuffer, byteOffset, length);
   const dst = new Uint32Array(workBuffer, byteOffset, length);
   dst.set(src);

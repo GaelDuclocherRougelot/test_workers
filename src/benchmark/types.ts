@@ -37,3 +37,30 @@ export interface SortRangeDone {
   type: "sortRangeDone";
   workerId: number;
 }
+
+// Fusion (comptages -> tableau trié) déléguée à un worker du pool, pour ne
+// jamais bloquer le main thread — voir sortWorker.worker.ts.
+export interface FuseCountsRequest {
+  type: "fuseCounts";
+  countsBuffer: SharedArrayBuffer;
+  valueCount: number;
+  sortedBuffer: SharedArrayBuffer;
+}
+
+export interface FuseCountsDone {
+  type: "fuseCountsDone";
+  cursor: number;
+}
+
+// Merge bottom-up des runs triés délégué à un worker du pool, pour ne jamais
+// bloquer le main thread — voir indexSortWorker.worker.ts.
+export interface MergeRunsRequest {
+  type: "mergeRuns";
+  workBuffer: SharedArrayBuffer;
+  scratchBuffer: SharedArrayBuffer;
+  boundaries: number[];
+}
+
+export interface MergeRunsDone {
+  type: "mergeRunsDone";
+}

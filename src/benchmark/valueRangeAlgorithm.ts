@@ -1,4 +1,4 @@
-import type { CountRequest, CountDone } from "./types";
+import type { CountRequest, CountDone, FuseCountsRequest, FuseCountsDone } from "./types";
 import SortWorker from "../workers/sortWorker.worker?worker";
 import { ARRAY_SIZE, VALUE_COUNT } from "./constants";
 import { dispatch, generateSource } from "./workerDispatch";
@@ -8,15 +8,16 @@ import type { Algorithm, RunResult, SweepOutcome } from "./algorithm";
 // Algorithme A : tri par comptage réparti par plage de VALEURS.
 // Chaque worker relit tout le tableau source mais ne compte que sa plage de
 // valeurs (via Atomics.add sur un buffer de comptage partagé). La fusion
-// finale (expansion des comptages) se fait sur le main thread, coût
-// indépendant de N.
+// finale (expansion des comptages) est elle aussi déléguée à un worker du
+// pool (voir sortWorker.worker.ts) : le main thread ne fait qu'attendre le
+// résultat, il n'exécute jamais la boucle de fusion lui-même.
 // ---------------------------------------------------------------------------
 
 export interface ValueRangeSession {
   sourceSAB: SharedArrayBuffer;
   pool: Worker[]; // Réutilisés à travers tous les runs/itérations d'une session
   countsSAB: SharedArrayBuffer;
-  sortedScratch: Uint32Array;
+  sortedSAB: SharedArrayBuffer;
 }
 
 function computeValueRanges(n: number): Array<{ rangeStart: number; rangeEndExclusive: number }> {
@@ -34,8 +35,8 @@ async function createValueRangeSession(
   const sourceSAB = await generateSource(onProgress);
   const pool = Array.from({ length: maxWorkers }, () => new SortWorker());
   const countsSAB = new SharedArrayBuffer(VALUE_COUNT * Uint32Array.BYTES_PER_ELEMENT);
-  const sortedScratch = new Uint32Array(ARRAY_SIZE);
-  return { sourceSAB, pool, countsSAB, sortedScratch };
+  const sortedSAB = new SharedArrayBuffer(ARRAY_SIZE * Uint32Array.BYTES_PER_ELEMENT);
+  return { sourceSAB, pool, countsSAB, sortedSAB };
 }
 
 function disposeValueRangeSession(session: ValueRangeSession): void {
@@ -78,18 +79,16 @@ async function runValueRangeSweep(
       ),
     );
 
-    // Fusion des comptages en tableau trié, sur le main thread : boucle
-    // linéaire dont le coût est indépendant de N, donc ne biaise pas la
-    // comparaison entre nombres de workers.
-    const sorted = session.sortedScratch;
-    let cursor = 0;
-    for (let value = 0; value < VALUE_COUNT; value++) {
-      const count = counts[value];
-      if (count > 0) {
-        sorted.fill(value, cursor, cursor + count);
-        cursor += count;
-      }
-    }
+    // Fusion des comptages en tableau trié, déléguée à un worker du pool
+    // (réutilise pool[0], libre puisque le Promise.all ci-dessus est déjà
+    // résolu) : le main thread se contente d'attendre une promesse, il
+    // n'exécute jamais la boucle de fusion lui-même.
+    const { cursor } = await dispatch<FuseCountsRequest, FuseCountsDone>(session.pool[0], {
+      type: "fuseCounts",
+      countsBuffer: session.countsSAB,
+      valueCount: VALUE_COUNT,
+      sortedBuffer: session.sortedSAB,
+    });
 
     const ms = performance.now() - t0;
     if (n === 1) baselineMs = ms;

@@ -62,11 +62,11 @@ flowchart TD
 
     F -->|Plage de valeurs| G1["Découpe [0, MAX_VALUE] en n tranches de VALEURS"]
     G1 --> G2["n × sortWorker.worker :<br/>relit tout le tableau source,<br/>Atomics.add(counts[v]) si v dans sa plage"]
-    G2 --> G3["Fusion main thread : counts → tableau trié<br/>coût CONSTANT, indépendant de n"]
+    G2 --> G3["Fusion déléguée à pool[0] :<br/>counts → tableau trié<br/>coût CONSTANT, indépendant de n"]
 
     F -->|Plage d'index| H1["Découpe [0, ARRAY_SIZE] en n tranches d'INDEX"]
     H1 --> H2["n × indexSortWorker.worker :<br/>lit sa tranche, copie + sort local dans workBuffer"]
-    H2 --> H3["Fusion main thread : merge bottom-up pairwise<br/>coût O(log n), croît avec n"]
+    H2 --> H3["Merge délégué à pool[0] :<br/>merge bottom-up pairwise<br/>coût O(log n), croît avec n"]
 
     G3 --> I["③ ms = performance.now() après − avant<br/>speedup = ms(n=1) / ms(n)<br/>console.log + console.table"]
     H3 --> I
@@ -83,9 +83,11 @@ Points clés :
   découpage et la fusion : "plage de valeurs" paie des lectures redondantes
   mais a une fusion à coût fixe (scale loin) ; "plage d'index" paie une
   fusion qui grossit avec N (plafonne plus tôt).
-- Rien ne touche le main thread pendant le calcul lourd : génération, comptage
-  et tri se font tous dans des workers ; le main thread ne fait que
-  `performance.now()`, `Promise.all` et la fusion finale (rapide).
+- **Le main thread n'exécute jamais de calcul lourd**, fusion comprise :
+  génération, comptage/tri et fusion finale se font tous dans des workers
+  (la fusion réutilise `pool[0]`, libre une fois son propre comptage/tri
+  terminé). Le main thread ne fait que `performance.now()`, `Promise.all`
+  et logguer les résultats — il reste réactif pendant toute la durée du run.
 
 ## Lancer le benchmark
 
