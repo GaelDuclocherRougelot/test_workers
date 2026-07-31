@@ -35,11 +35,16 @@ Les écritures concurrentes dans le tableau de comptage utilisent
 `SharedArrayBuffer` exige un contexte cross-origin isolé
 (`self.crossOriginIsolated === true`), fourni ici via les headers
 `Cross-Origin-Opener-Policy: same-origin` et
-`Cross-Origin-Embedder-Policy: require-corp` configurés dans
-`vite.config.ts` (dev server et `vite preview`). **Ces headers ne sont pas
-automatiquement présents sur un déploiement statique** (Netlify, Vercel,
-Nginx...) : il faudra les reconfigurer côté hébergeur pour toute mise en
-production.
+`Cross-Origin-Embedder-Policy: require-corp`. Ces headers sont configurés à
+deux endroits distincts, car aucun des deux ne couvre l'autre cas :
+- `vite.config.ts` (`server.headers` / `preview.headers`) — pour `npm run
+  dev` et `npm run preview` en local.
+- `vercel.json` (`headers`) — pour le déploiement statique sur Vercel, qui ne
+  passe jamais par le serveur Vite et ignore donc `vite.config.ts`.
+
+**Sur un autre hébergeur statique** (Netlify, Nginx, GitHub Pages...), il
+faudra reconfigurer ces deux headers dans le mécanisme propre à cet
+hébergeur (`_headers` pour Netlify, bloc `add_header` pour Nginx, etc.).
 
 ## Flow
 
