@@ -3,6 +3,11 @@ import {
   runContinuousBenchmark,
   runIndexRangeBenchmark,
   runIndexRangeContinuousBenchmark,
+  computeStabilityStats,
+  renderChart,
+  renderTable,
+  formatRunResultRow,
+  formatStabilityRow,
 } from "./benchmark/orchestrator";
 
 const CONTINUOUS_DURATION_MS = 10 * 60 * 1000;
@@ -13,6 +18,8 @@ const runButton = document.querySelector<HTMLButtonElement>("#run-button")!;
 const startButton = document.querySelector<HTMLButtonElement>("#start-button")!;
 const stopButton = document.querySelector<HTMLButtonElement>("#stop-button")!;
 const statusEl = document.querySelector<HTMLPreElement>("#status")!;
+const chartCanvas = document.querySelector<HTMLCanvasElement>("#chart")!;
+const resultsTableEl = document.querySelector<HTMLDivElement>("#results-table")!;
 
 const defaultMaxWorkers = Math.min(32, (navigator.hardwareConcurrency || 4) * 2);
 maxWorkersInput.value = String(defaultMaxWorkers);
@@ -49,9 +56,21 @@ if (typeof SharedArrayBuffer === "undefined" || !self.crossOriginIsolated) {
     const run = isIndexRangeSelected() ? runIndexRangeBenchmark : runBenchmark;
 
     try {
-      await run(readMaxWorkers(), (message) => {
+      const results = await run(readMaxWorkers(), (message) => {
         statusEl.textContent = message;
       });
+      renderChart(
+        chartCanvas,
+        results.map((r) => ({
+          workers: r.workers,
+          computeMs: r.computeMs,
+          fusionMs: r.fusionMs,
+          totalMs: r.ms,
+          speedup: r.speedup,
+        })),
+        `One-shot — ${isIndexRangeSelected() ? "plage d'index" : "plage de valeurs"}`,
+      );
+      renderTable(resultsTableEl, results.map(formatRunResultRow));
       statusEl.textContent = "Terminé — résultats dans la console.";
     } finally {
       setControlsEnabled(true);
@@ -64,7 +83,7 @@ if (typeof SharedArrayBuffer === "undefined" || !self.crossOriginIsolated) {
     const runContinuous = isIndexRangeSelected() ? runIndexRangeContinuousBenchmark : runContinuousBenchmark;
 
     try {
-      await runContinuous(
+      const samples = await runContinuous(
         readMaxWorkers(),
         CONTINUOUS_DURATION_MS,
         () => stopRequested,
@@ -76,6 +95,12 @@ if (typeof SharedArrayBuffer === "undefined" || !self.crossOriginIsolated) {
               : `Itération ${iteration} — ${remainingS}s restantes (Stop pour arrêter plus tôt)...`;
         },
       );
+      renderChart(
+        chartCanvas,
+        computeStabilityStats(samples),
+        `Continu — ${isIndexRangeSelected() ? "plage d'index" : "plage de valeurs"} (moyenne + min/max)`,
+      );
+      renderTable(resultsTableEl, computeStabilityStats(samples).map(formatStabilityRow));
       statusEl.textContent = stopRequested
         ? "Arrêté manuellement — statistiques de stabilité dans la console."
         : "Terminé (10 min) — statistiques de stabilité dans la console.";

@@ -4,6 +4,22 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Benchmark Web Workers — tri par comptage</title>
+    <style>
+      #results-table table {
+        border-collapse: collapse;
+        margin-top: 12px;
+        font-size: 13px;
+      }
+      #results-table th,
+      #results-table td {
+        border: 1px solid #ccc;
+        padding: 4px 8px;
+        text-align: right;
+      }
+      #results-table th {
+        background: #f4f4f4;
+      }
+    </style>
   </head>
   <body>
     <div id="app">
@@ -25,6 +41,13 @@
         <button id="stop-button" type="button" disabled>Stop</button>
       </div>
       <pre id="status"></pre>
+      <canvas
+        id="chart"
+        width="800"
+        height="320"
+        style="max-width: 100%; border: 1px solid #ccc; margin-top: 12px"
+      ></canvas>
+      <div id="results-table"></div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

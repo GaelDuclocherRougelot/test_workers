@@ -8,6 +8,13 @@ export type { RunResult, ContinuousProgress };
 export type { ValueRangeSession } from "./valueRangeAlgorithm";
 export type { IndexRangeSession } from "./indexRangeAlgorithm";
 export { ARRAY_SIZE, MAX_VALUE } from "./constants";
+export type { StabilityStats } from "./stats";
+export { computeStabilityStats } from "./stats";
+export type { ChartPoint } from "./chart";
+export { renderChart } from "./chart";
+export type { FormattedRow } from "./format";
+export { formatRunResultRow, formatStabilityRow } from "./format";
+export { renderTable } from "./htmlTable";
 
 // ---------------------------------------------------------------------------
 // API publique : point d'entrée unique consommé par main.ts. Le découpage

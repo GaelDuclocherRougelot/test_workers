@@ -16,6 +16,7 @@ export function dispatch<TReq, TRes>(worker: Worker, request: TReq): Promise<TRe
 export async function generateSource(onProgress?: (message: string) => void): Promise<SharedArrayBuffer> {
   onProgress?.("Génération du tableau source (5 000 000 entiers)...");
 
+  const t0 = performance.now();
   const sourceSAB = new SharedArrayBuffer(ARRAY_SIZE * Uint32Array.BYTES_PER_ELEMENT);
   const generatorWorker = new GeneratorWorker();
   await dispatch<GenerateRequest, GenerateDone>(generatorWorker, {
@@ -25,6 +26,7 @@ export async function generateSource(onProgress?: (message: string) => void): Pr
     maxValue: MAX_VALUE,
   });
   generatorWorker.terminate();
+  console.log(`Génération du tableau source : ${(performance.now() - t0).toFixed(1)} ms (dans un worker)`);
 
   return sourceSAB;
 }

@@ -37,7 +37,15 @@ async function createIndexRangeSession(
   onProgress?: (message: string) => void,
 ): Promise<IndexRangeSession> {
   const sourceSAB = await generateSource(onProgress);
+
+  // Coût de `new Worker()` : essentiellement la portion synchrone (le script
+  // du worker est ensuite parsé/exécuté sur son propre thread, hors de cette
+  // mesure) — utile pour repérer si l'instanciation d'un gros pool devient
+  // significative à mesure que maxWorkers grandit.
+  const tPoolStart = performance.now();
   const pool = Array.from({ length: maxWorkers }, () => new IndexSortWorker());
+  console.log(`Instanciation du pool (${maxWorkers} workers) : ${(performance.now() - tPoolStart).toFixed(1)} ms`);
+
   const workBuffer = new SharedArrayBuffer(ARRAY_SIZE * Uint32Array.BYTES_PER_ELEMENT);
   const scratchSAB = new SharedArrayBuffer(ARRAY_SIZE * Uint32Array.BYTES_PER_ELEMENT);
   return { sourceSAB, pool, workBuffer, scratchSAB };
@@ -79,11 +87,13 @@ async function runIndexRangeSweep(
         }),
       ),
     );
+    const computeMs = performance.now() - t0;
 
     // Merge délégué à un worker du pool (réutilise pool[0], libre puisque
     // le Promise.all ci-dessus est déjà résolu) : le main thread se
     // contente d'attendre une promesse, il n'exécute jamais le merge
     // lui-même.
+    const tFusionStart = performance.now();
     const boundaries = [...ranges.map((range) => range.rangeStart), ARRAY_SIZE];
     await dispatch<MergeRunsRequest, MergeRunsDone>(session.pool[0], {
       type: "mergeRuns",
@@ -91,12 +101,13 @@ async function runIndexRangeSweep(
       scratchBuffer: session.scratchSAB,
       boundaries,
     });
+    const fusionMs = performance.now() - tFusionStart;
 
     const ms = performance.now() - t0;
     if (n === 1) baselineMs = ms;
     const speedup = baselineMs / ms;
 
-    results.push({ workers: n, ms, speedup });
+    results.push({ workers: n, ms, computeMs, fusionMs, speedup });
   }
 
   return { results, aborted: false };

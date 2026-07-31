@@ -1,6 +1,8 @@
 export interface RunResult {
   workers: number;
-  ms: number;
+  ms: number; // total = computeMs + fusionMs (+ overhead marginal du main thread)
+  computeMs: number; // temps du Promise.all sur les workers de calcul (comptage/tri)
+  fusionMs: number; // temps du dispatch de fusion/merge vers pool[0]
   speedup: number;
 }
 

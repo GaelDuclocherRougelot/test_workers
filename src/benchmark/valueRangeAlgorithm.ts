@@ -33,7 +33,15 @@ async function createValueRangeSession(
   onProgress?: (message: string) => void,
 ): Promise<ValueRangeSession> {
   const sourceSAB = await generateSource(onProgress);
+
+  // Coût de `new Worker()` : essentiellement la portion synchrone (le script
+  // du worker est ensuite parsé/exécuté sur son propre thread, hors de cette
+  // mesure) — utile pour repérer si l'instanciation d'un gros pool devient
+  // significative à mesure que maxWorkers grandit.
+  const tPoolStart = performance.now();
   const pool = Array.from({ length: maxWorkers }, () => new SortWorker());
+  console.log(`Instanciation du pool (${maxWorkers} workers) : ${(performance.now() - tPoolStart).toFixed(1)} ms`);
+
   const countsSAB = new SharedArrayBuffer(VALUE_COUNT * Uint32Array.BYTES_PER_ELEMENT);
   const sortedSAB = new SharedArrayBuffer(ARRAY_SIZE * Uint32Array.BYTES_PER_ELEMENT);
   return { sourceSAB, pool, countsSAB, sortedSAB };
@@ -78,23 +86,26 @@ async function runValueRangeSweep(
         }),
       ),
     );
+    const computeMs = performance.now() - t0;
 
     // Fusion des comptages en tableau trié, déléguée à un worker du pool
     // (réutilise pool[0], libre puisque le Promise.all ci-dessus est déjà
     // résolu) : le main thread se contente d'attendre une promesse, il
     // n'exécute jamais la boucle de fusion lui-même.
+    const tFusionStart = performance.now();
     const { cursor } = await dispatch<FuseCountsRequest, FuseCountsDone>(session.pool[0], {
       type: "fuseCounts",
       countsBuffer: session.countsSAB,
       valueCount: VALUE_COUNT,
       sortedBuffer: session.sortedSAB,
     });
+    const fusionMs = performance.now() - tFusionStart;
 
     const ms = performance.now() - t0;
     if (n === 1) baselineMs = ms;
     const speedup = baselineMs / ms;
 
-    results.push({ workers: n, ms, speedup });
+    results.push({ workers: n, ms, computeMs, fusionMs, speedup });
 
     if (cursor !== ARRAY_SIZE) {
       console.warn(`Vérification échouée (plage de valeurs) pour n=${n}: ${cursor} valeurs comptées au lieu de ${ARRAY_SIZE}`);
