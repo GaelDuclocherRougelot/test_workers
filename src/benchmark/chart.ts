@@ -1,24 +1,21 @@
 export interface ChartPoint {
   workers: number;
-  computeMs: number;
-  fusionMs: number;
   totalMs: number;
   speedup: number;
   minMs?: number;
   maxMs?: number;
 }
 
-const COLOR_COMPUTE = "#4f8fea";
-const COLOR_FUSION = "#f2a541";
+const COLOR_BAR = "#4f8fea";
 const COLOR_SPEEDUP = "#e0435c";
 const COLOR_RANGE = "rgba(0, 0, 0, 0.4)";
 const COLOR_AXIS = "#666";
 const COLOR_GRID = "#e5e5e5";
 
 // Rendu canvas 2D volontairement sans lib externe (cohérent avec le reste du
-// projet, vanilla TS) : barres empilées calcul+fusion (axe de gauche, ms),
-// ligne de speedup par-dessus (axe de droite, x0.0), et en mode continu une
-// barre d'erreur min/max verticale par nombre de workers.
+// projet, vanilla TS) : une barre par nombre de workers (axe de gauche, ms),
+// une ligne de speedup superposée (axe de droite, x0.0), et en mode continu
+// une barre d'erreur min/max verticale par nombre de workers.
 export function renderChart(canvas: HTMLCanvasElement, points: ChartPoint[], title: string): void {
   const ctx = canvas.getContext("2d");
   if (!ctx || points.length === 0) return;
@@ -78,11 +75,8 @@ export function renderChart(canvas: HTMLCanvasElement, points: ChartPoint[], tit
     const xBar = xCenter - barWidth / 2;
 
     const yTotal = msY(p.totalMs);
-    const yCompute = msY(p.computeMs);
-    ctx.fillStyle = COLOR_COMPUTE;
-    ctx.fillRect(xBar, yCompute, barWidth, plotBottom - yCompute);
-    ctx.fillStyle = COLOR_FUSION;
-    ctx.fillRect(xBar, yTotal, barWidth, yCompute - yTotal);
+    ctx.fillStyle = COLOR_BAR;
+    ctx.fillRect(xBar, yTotal, barWidth, plotBottom - yTotal);
 
     if (p.minMs !== undefined && p.maxMs !== undefined) {
       const yMin = msY(p.minMs);
@@ -144,7 +138,6 @@ export function renderChart(canvas: HTMLCanvasElement, points: ChartPoint[], tit
     ctx.fillText(label, legendX + 13, legendY);
     legendX += ctx.measureText(label).width + 26;
   };
-  legendItem(COLOR_COMPUTE, "calcul (ms)");
-  legendItem(COLOR_FUSION, "fusion (ms)");
+  legendItem(COLOR_BAR, "temps (ms)");
   legendItem(COLOR_SPEEDUP, "speedup", true);
 }

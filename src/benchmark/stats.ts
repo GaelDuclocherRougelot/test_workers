@@ -1,10 +1,8 @@
-import type { RunResult } from "./algorithm";
+import type { RunResult } from "./result";
 
 export interface StabilityStats {
   workers: number;
   iterations: number;
-  computeMs: number;
-  fusionMs: number;
   totalMs: number;
   minMs: number;
   maxMs: number;
@@ -30,9 +28,7 @@ export function computeStabilityStats(samples: Map<number, RunResult[]>): Stabil
       const maxMs = Math.max(...msValues);
       const variance = msValues.reduce((acc, v) => acc + (v - totalMs) ** 2, 0) / msValues.length;
       const stddevMs = Math.sqrt(variance);
-      const computeMs = average(runs.map((r) => r.computeMs));
-      const fusionMs = average(runs.map((r) => r.fusionMs));
       const speedup = average(runs.map((r) => r.speedup));
-      return { workers, iterations: runs.length, computeMs, fusionMs, totalMs, minMs, maxMs, stddevMs, speedup };
+      return { workers, iterations: runs.length, totalMs, minMs, maxMs, stddevMs, speedup };
     });
 }

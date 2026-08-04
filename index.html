@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Benchmark Web Workers — tri par comptage</title>
+    <title>Benchmark Web Workers — recherche parallèle</title>
     <style>
       #results-table table {
         border-collapse: collapse;
@@ -19,20 +19,25 @@
       #results-table th {
         background: #f4f4f4;
       }
+      #worker-states {
+        display: flex;
+        flex-wrap: wrap;
+        margin-top: 8px;
+        min-height: 26px;
+      }
     </style>
   </head>
   <body>
     <div id="app">
-      <h1>Benchmark Web Workers</h1>
+      <h1>Benchmark Web Workers — recherche parallèle</h1>
       <p>
-        Tri de 5 000 000 d'entiers, réparti sur 1 à N workers.
-        Les résultats (temps &amp; speedup) s'affichent dans la console.
+        Recherche d'une target fixe (même index à chaque run) dans un tableau de 5 000 000
+        d'entiers, réparti sur 1 à N workers. Chaque worker scanne sa tranche et vérifie
+        régulièrement, via <code>Atomics</code>, si un autre worker a déjà trouvé la target —
+        si oui, il s'arrête (état <code>stopped</code>) au lieu de scanner inutilement le
+        reste de sa tranche. Les résultats (temps &amp; speedup) s'affichent dans la console
+        et ci-dessous.
       </p>
-      <label for="algorithm">Algorithme</label>
-      <select id="algorithm">
-        <option value="value-range">Plage de valeurs (comptage, chaque worker relit tout le tableau)</option>
-        <option value="index-range">Plage d'index (tri local par tranche + fusion bottom-up)</option>
-      </select>
       <label for="max-workers">Max workers</label>
       <input id="max-workers" type="number" min="1" max="64" />
       <div class="actions">
@@ -41,6 +46,7 @@
         <button id="stop-button" type="button" disabled>Stop</button>
       </div>
       <pre id="status"></pre>
+      <div id="worker-states" title="État courant des workers : gris = idle, bleu = searching, vert = found, orange = stopped"></div>
       <canvas
         id="chart"
         width="800"
